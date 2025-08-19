@@ -2,11 +2,8 @@
 # You can find the documentation at https://docs.fastlane.tools
 #
 # For a list of all available actions, check out
-#
 #     https://docs.fastlane.tools/actions
-#
 # For a list of all available plugins, check out
-#
 #     https://docs.fastlane.tools/plugins/available-plugins
 #
 
@@ -27,59 +24,52 @@ platform :ios do
   desc "Build Loop Follow"
   lane :build_LoopFollow do
     setup_ci if ENV['CI']
-    
+
     update_project_team(
       path: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
-      teamid: "#{TEAMID}"
+      teamid: TEAMID.to_s
     )
 
     api_key = app_store_connect_api_key(
-      key_id: "#{FASTLANE_KEY_ID}",
-      issuer_id: "#{FASTLANE_ISSUER_ID}",
-      key_content: "#{FASTLANE_KEY}"
+      key_id: FASTLANE_KEY_ID.to_s,
+      issuer_id: FASTLANE_ISSUER_ID.to_s,
+      key_content: FASTLANE_KEY.to_s
     )
 
-    previous_build_number = latest_testflight_build_number(
-      app_identifier: "com.#{TEAMID}.LoopFollow",
-      api_key: api_key,
-    )
-
-    current_build_number = previous_build_number + 1
+    # Hent siste TF buildnummer (fallback 0 om ingen finnes ennå)
+    previous_build_number = 0
+    begin
+      previous_build_number = latest_testflight_build_number(
+        app_identifier: "com.#{TEAMID}.loopkit.LoopFollow",
+        api_key: api_key
+      )
+    rescue
+      previous_build_number = 0
+    end
 
     increment_build_number(
       xcodeproj: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
-      build_number: current_build_number
-    )      
-    
+      build_number: previous_build_number.to_i + 1
+    )
+
+    # Hent certs/profil fra Caregiver sitt Match-repo, uten å lage nye certs
     match(
       type: "appstore",
-      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
-      app_identifier: [
-        "com.#{TEAMID}.LoopFollow"
-      ]
+      app_identifier: ["com.#{TEAMID}.loopkit.LoopFollow"],
+      # Bruk Matchfile sin git_url (Match-Caregiver) + denne auth-secret'en:
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
+      readonly: false,                 # må kunne opprette/oppdatere provisioning-profil
+      generate_apple_certs: false      # aldri lag nytt Distribution-sertifikat
     )
 
-    previous_build_number = latest_testflight_build_number(
-      app_identifier: "com.#{TEAMID}.LoopFollow",
-      api_key: api_key,
-    )
-
-    current_build_number = previous_build_number + 1
-
-    increment_build_number(
-      xcodeproj: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
-      build_number: current_build_number
-    )
-    
-    mapping = Actions.lane_context[
-      SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING
-    ]
+    mapping = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
 
     update_code_signing_settings(
       path: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
-      profile_name: mapping["com.#{TEAMID}.LoopFollow"],
-      code_sign_identity: "iPhone Distribution",
-      targets: ["LoopFollow"]
+      profile_name: mapping["com.#{TEAMID}.loopkit.LoopFollow"],
+      code_sign_identity: "Apple Distribution",
+      targets: ["LoopFollow"],
+      use_automatic_signing: false
     )
 
     gym(
@@ -100,16 +90,16 @@ platform :ios do
   desc "Push to TestFlight"
   lane :release do
     api_key = app_store_connect_api_key(
-      key_id: "#{FASTLANE_KEY_ID}",
-      issuer_id: "#{FASTLANE_ISSUER_ID}",
-      key_content: "#{FASTLANE_KEY}"
+      key_id: FASTLANE_KEY_ID.to_s,
+      issuer_id: FASTLANE_ISSUER_ID.to_s,
+      key_content: FASTLANE_KEY.to_s
     )
-    
+
     upload_to_testflight(
       api_key: api_key,
       skip_submission: false,
       ipa: "LoopFollow.ipa",
-      skip_waiting_for_build_processing: true,
+      skip_waiting_for_build_processing: true
     )
   end
 
@@ -117,49 +107,45 @@ platform :ios do
   lane :identifiers do
     setup_ci if ENV['CI']
     ENV["MATCH_READONLY"] = false.to_s
-    
+
     app_store_connect_api_key(
-      key_id: "#{FASTLANE_KEY_ID}",
-      issuer_id: "#{FASTLANE_ISSUER_ID}",
-      key_content: "#{FASTLANE_KEY}"
+      key_id: FASTLANE_KEY_ID.to_s,
+      issuer_id: FASTLANE_ISSUER_ID.to_s,
+      key_content: FASTLANE_KEY.to_s
     )
 
     def configure_bundle_id(name, identifier, capabilities)
-      bundle_id = Spaceship::ConnectAPI::BundleId.find(identifier) || Spaceship::ConnectAPI::BundleId.create(
-        name:       name,
-        identifier: identifier,
-        platform:   "IOS"
-      )
+      bundle_id = Spaceship::ConnectAPI::BundleId.find(identifier) ||
+                  Spaceship::ConnectAPI::BundleId.create(
+                    name:       name,
+                    identifier: identifier,
+                    platform:   "IOS"
+                  )
       existing = bundle_id.get_capabilities.map(&:capability_type)
-      capabilities.reject { |c| existing.include?(c) }.each do |cap|
-        bundle_id.create_capability(cap)
-      end
+      capabilities.reject { |c| existing.include?(c) }.each { |cap| bundle_id.create_capability(cap) }
     end
 
-    configure_bundle_id("LoopFollow", "com.#{TEAMID}.LoopFollow", [
-    ])
-    
+    # Vær konsekvent med bundle id:
+    configure_bundle_id("LoopFollow", "com.#{TEAMID}.loopkit.LoopFollow", [])
   end
 
-  desc "Provision Certificates"
+  desc "Provision Certificates (henter fra Caregiver, lager ikke nye)"
   lane :certs do
     setup_ci if ENV['CI']
     ENV["MATCH_READONLY"] = false.to_s
-    
+
     app_store_connect_api_key(
-      key_id: "#{FASTLANE_KEY_ID}",
-      issuer_id: "#{FASTLANE_ISSUER_ID}",
-      key_content: "#{FASTLANE_KEY}"
+      key_id: FASTLANE_KEY_ID.to_s,
+      issuer_id: FASTLANE_ISSUER_ID.to_s,
+      key_content: FASTLANE_KEY.to_s
     )
-    
+
     match(
       type: "appstore",
-      force: false,
-      verbose: true,
-      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
-      app_identifier: [
-        "com.#{TEAMID}.LoopFollow",
-      ]
+      app_identifier: ["com.#{TEAMID}.loopkit.LoopFollow"],
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
+      readonly: false,
+      generate_apple_certs: false
     )
   end
 
@@ -169,92 +155,71 @@ platform :ios do
     ENV["MATCH_READONLY"] = true.to_s
 
     app_store_connect_api_key(
-      key_id: "#{FASTLANE_KEY_ID}",
-      issuer_id: "#{FASTLANE_ISSUER_ID}",
-      key_content: "#{FASTLANE_KEY}"
+      key_id: FASTLANE_KEY_ID.to_s,
+      issuer_id: FASTLANE_ISSUER_ID.to_s,
+      key_content: FASTLANE_KEY.to_s
     )
 
-    def find_bundle_id(identifier)
-      bundle_id = Spaceship::ConnectAPI::BundleId.find(identifier)
-    end
-
-    find_bundle_id("com.#{TEAMID}.loopkit.LoopFollow")
+    # Sjekk at riktig bundle id finnes (samme som ellers)
+    Spaceship::ConnectAPI::BundleId.find("com.#{TEAMID}.loopkit.LoopFollow")
 
     match(
       type: "appstore",
-      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
       app_identifier: [],
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION'],
+      readonly: true,
+      generate_apple_certs: false
     )
   end
 
-  desc "Nuke Certs"
+  desc "Nuke Certs (IKKE bruk uten at du vet hva du gjør)"
   lane :nuke_certs do
     setup_ci if ENV['CI']
     ENV["MATCH_READONLY"] = false.to_s
-    
+
     app_store_connect_api_key(
-      key_id: "#{FASTLANE_KEY_ID}",
-      issuer_id: "#{FASTLANE_ISSUER_ID}",
-      key_content: "#{FASTLANE_KEY}"
+      key_id: FASTLANE_KEY_ID.to_s,
+      issuer_id: FASTLANE_ISSUER_ID.to_s,
+      key_content: FASTLANE_KEY.to_s
     )
-    
+
     match_nuke(
       type: "appstore",
-      team_id: "#{TEAMID}",
+      team_id: TEAMID.to_s,
       skip_confirmation: true,
-      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}")
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTHORIZATION']
     )
   end
-  
+
   desc "Check Certificates and Trigger Workflow for Expired or Missing Certificates"
   lane :check_and_renew_certificates do
     setup_ci if ENV['CI']
     ENV["MATCH_READONLY"] = false.to_s
-  
-    # Authenticate using App Store Connect API Key
+
     api_key = app_store_connect_api_key(
       key_id: ENV["FASTLANE_KEY_ID"],
       issuer_id: ENV["FASTLANE_ISSUER_ID"],
-      key_content: ENV["FASTLANE_KEY"] # Ensure valid key content
+      key_content: ENV["FASTLANE_KEY"]
     )
-  
-    # Initialize flag to track if renewal of certificates is needed
+
     new_certificate_needed = false
-  
-    # Fetch all certificates
     certificates = Spaceship::ConnectAPI::Certificate.all
-  
-    # Filter for Distribution Certificates
     distribution_certs = certificates.select { |cert| cert.certificate_type == "DISTRIBUTION" }
-  
-    # Handle case where no distribution certificates are found
+
     if distribution_certs.empty?
       puts "No Distribution certificates found! Triggering action to create certificate."
       new_certificate_needed = true
     else
-      # Check for expiration
       distribution_certs.each do |cert|
         expiration_date = Time.parse(cert.expiration_date)
-  
         puts "Current Distribution Certificate: #{cert.id}, Expiration date: #{expiration_date}"
-  
-        if expiration_date < Time.now
-          puts "Distribution Certificate #{cert.id} is expired! Triggering action to renew certificate."
-          new_certificate_needed = true
-        else
-          puts "Distribution certificate #{cert.id} is valid. No action required."
-        end
+        new_certificate_needed = true if expiration_date < Time.now
       end
     end
-  
-    # Write result to new_certificate_needed.txt
+
     file_path = File.expand_path('new_certificate_needed.txt')
-    File.write(file_path, new_certificate_needed ? 'true' : 'false')  
-  
-    # Log the absolute path and contents of the new_certificate_needed.txt file
-    puts ""
-    puts "Absolute path of new_certificate_needed.txt: #{file_path}"
-    new_certificate_needed_content = File.read(file_path)
-    puts "Certificate creation or renewal needed: #{new_certificate_needed_content}"
+    File.write(file_path, new_certificate_needed ? 'true' : 'false')
+    puts "\nAbsolute path of new_certificate_needed.txt: #{file_path}"
+    puts "Certificate creation or renewal needed: #{File.read(file_path)}"
   end
 end
