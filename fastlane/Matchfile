@@ -1,10 +1,19 @@
-
 GITHUB_REPOSITORY_OWNER ||= ENV["GITHUB_REPOSITORY_OWNER"]
 
-git_url("https://github.com/#{GITHUB_REPOSITORY_OWNER}/Match-Secrets.git")
-
+# Hent certs/profiler fra Caregiver sitt Match-repo
+git_url("https://github.com/#{GITHUB_REPOSITORY_OWNER}/Match-Caregiver.git")
+git_branch("master")
 storage_mode("git")
-
 type("appstore")
 
-# The docs are available on https://docs.fastlane.tools/actions/match
+# Appen som skal signeres
+app_identifier([
+  "com.#{ENV['TEAMID']}.loopkit.LoopFollow"
+])
+
+# Kritisk: ikke lag nye sertifikater (bruk eksisterende fra Caregiver)
+generate_apple_certs(false)
+readonly(false) # tillat å lage/oppdatere provisioning-profil for Follow
+
+# HTTPS Basic via Base64("x-access-token:PAT") i secret MATCH_GIT_BASIC_AUTHORIZATION
+git_basic_authorization(ENV['MATCH_GIT_BASIC_AUTHORIZATION'])
