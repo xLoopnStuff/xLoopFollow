@@ -21,7 +21,22 @@ platform :ios do
       teamid: TEAMID.to_s
     )
 
-    # Tving riktig bundle id på targetet (fikser mismatch)
+    # 1) Sett riktig bundle id direkte i .xcodeproj for targetet
+    sh <<~SH
+      ruby - <<'RUBY'
+        require 'xcodeproj'
+        project_path = ENV['GITHUB_WORKSPACE'] + '/LoopFollow.xcodeproj'
+        bundle_id = "com.#{ENV['TEAMID']}.loopkit.LoopFollow"
+        proj = Xcodeproj::Project.open(project_path)
+        target = proj.targets.find { |t| t.name == 'LoopFollow' }
+        abort("❌ Fant ikke target 'LoopFollow'") unless target
+        target.build_configurations.each { |cfg| cfg.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = bundle_id }
+        proj.save
+        puts "✅ PRODUCT_BUNDLE_IDENTIFIER satt til #{bundle_id}"
+      RUBY
+    SH
+
+    # 2) Og speil i Info.plist (sikring)
     update_app_identifier(
       xcodeproj: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
       plist_path: "LoopFollow/Info.plist",
@@ -50,7 +65,7 @@ platform :ios do
       build_number: previous_build_number.to_i + 1
     )
 
-    # Hent certs/profil fra Match-Caregiver (uten nye certs)
+    # 3) Hent certs/profil fra Match-Caregiver
     match(
       type: "appstore",
       app_identifier: ["com.#{TEAMID}.loopkit.LoopFollow"],
@@ -69,6 +84,7 @@ platform :ios do
       use_automatic_signing: false
     )
 
+    # 4) Bygg – tving samme bundle id via xcargs, og bruk minimale export options
     gym(
       export_method: "app-store",
       scheme: "LoopFollow",
@@ -76,11 +92,9 @@ platform :ios do
       configuration: "Release",
       destination: 'generic/platform=iOS',
       buildlog_path: 'buildlog',
+      xcargs: "PRODUCT_BUNDLE_IDENTIFIER=com.#{TEAMID}.loopkit.LoopFollow",
       export_options: {
-        method: "app-store",
-        provisioningProfiles: {
-          "com.#{TEAMID}.loopkit.LoopFollow" => "match AppStore com.#{TEAMID}.loopkit.LoopFollow"
-        }
+        method: "app-store" # bevisst minimal – unngå å blande inn pods i provisioning
       }
     )
 
