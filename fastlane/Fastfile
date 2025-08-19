@@ -21,25 +21,12 @@ platform :ios do
       teamid: TEAMID.to_s
     )
 
-    # 1) Riktig bundle id i Info.plist
+    # Tving riktig bundle id på targetet (fikser mismatch)
     update_app_identifier(
       xcodeproj: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
       plist_path: "LoopFollow/Info.plist",
       app_identifier: "com.#{TEAMID}.loopkit.LoopFollow"
     )
-
-    # 2) Tving også PRODUCT_BUNDLE_IDENTIFIER i .xcodeproj (for alle configer)
-    require 'xcodeproj'
-    proj_path = "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj"
-    proj = Xcodeproj::Project.open(proj_path)
-    t = proj.targets.find { |tt| tt.name == "LoopFollow" }
-    UI.user_error!("Fant ikke target 'LoopFollow' i #{proj_path}") unless t
-    desired_id = "com.#{TEAMID}.loopkit.LoopFollow"
-    t.build_configurations.each do |cfg|
-      UI.message("Setting PRODUCT_BUNDLE_IDENTIFIER for #{cfg.name} -> #{desired_id}")
-      cfg.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = desired_id
-    end
-    proj.save
 
     api_key = app_store_connect_api_key(
       key_id: FASTLANE_KEY_ID.to_s,
@@ -54,7 +41,7 @@ platform :ios do
         app_identifier: "com.#{TEAMID}.loopkit.LoopFollow",
         api_key: api_key
       )
-    rescue
+    rescue StandardError
       previous_build_number = 0
     end
 
@@ -91,7 +78,6 @@ platform :ios do
       buildlog_path: 'buildlog',
       export_options: {
         method: "app-store",
-        signingStyle: "manual",
         provisioningProfiles: {
           "com.#{TEAMID}.loopkit.LoopFollow" => "match AppStore com.#{TEAMID}.loopkit.LoopFollow"
         }
@@ -102,6 +88,7 @@ platform :ios do
       target_path: "artifacts",
       artifacts: ["*.mobileprovision", "*.ipa", "*.dSYM.zip"]
     )
+  end
 
   desc "Upload IPA til TestFlight"
   lane :release do
@@ -181,8 +168,7 @@ platform :ios do
     )
   end
 
-  # ADVARSEL: slett certs fra Apple-teamet. Ikke bruk uten at du mener det.
-  desc "Nuke Certs"
+  # ADVARSEL: sletter certs fra Apple-teamet. Bruk med omhu.
   lane :nuke_certs do
     setup_ci if ENV['CI']
 
