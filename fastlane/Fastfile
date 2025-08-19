@@ -22,7 +22,7 @@ platform :ios do
     )
 
     # 1) Sett riktig bundle id direkte i .xcodeproj for targetet
-    sh <<~SH
+    sh <<~'SH'
       ruby - <<'RUBY'
         require 'xcodeproj'
         project_path = ENV['GITHUB_WORKSPACE'] + '/LoopFollow.xcodeproj'
@@ -36,7 +36,7 @@ platform :ios do
       RUBY
     SH
 
-    # 2) Og speil i Info.plist (sikring)
+    # 2) Speil i Info.plist (sikring)
     update_app_identifier(
       xcodeproj: "#{GITHUB_WORKSPACE}/LoopFollow.xcodeproj",
       plist_path: "LoopFollow/Info.plist",
@@ -49,7 +49,6 @@ platform :ios do
       key_content: FASTLANE_KEY.to_s
     )
 
-    # Hent siste TF-buildnummer (fallback 0 hvis ingen)
     previous_build_number = 0
     begin
       previous_build_number = latest_testflight_build_number(
@@ -84,7 +83,7 @@ platform :ios do
       use_automatic_signing: false
     )
 
-    # 4) Bygg – tving samme bundle id via xcargs, og bruk minimale export options
+    # 4) Bygg
     gym(
       export_method: "app-store",
       scheme: "LoopFollow",
@@ -94,7 +93,7 @@ platform :ios do
       buildlog_path: 'buildlog',
       xcargs: "PRODUCT_BUNDLE_IDENTIFIER=com.#{TEAMID}.loopkit.LoopFollow",
       export_options: {
-        method: "app-store" # bevisst minimal – unngå å blande inn pods i provisioning
+        method: "app-store"
       }
     )
 
