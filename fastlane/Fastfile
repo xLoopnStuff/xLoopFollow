@@ -89,15 +89,19 @@ platform :ios do
       configuration: "Release",
       destination: 'generic/platform=iOS',
       buildlog_path: 'buildlog',
-      # 3) Tving samme bundle id også ved build
-      xcargs: "PRODUCT_BUNDLE_IDENTIFIER=com.#{TEAMID}.loopkit.LoopFollow"
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "com.#{TEAMID}.loopkit.LoopFollow" => "match AppStore com.#{TEAMID}.loopkit.LoopFollow"
+        }
+      }
     )
 
     copy_artifacts(
       target_path: "artifacts",
       artifacts: ["*.mobileprovision", "*.ipa", "*.dSYM.zip"]
     )
-  end
 
   desc "Upload IPA til TestFlight"
   lane :release do
