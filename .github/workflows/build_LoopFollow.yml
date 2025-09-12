@@ -16,9 +16,10 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
 
-      - name: Checkout repo (your fork with updated Fastfile)
+      - name: Checkout repo (your fork, latest main)
         uses: actions/checkout@v4
         with:
+          ref: main                # 🚀 Tving bygg fra siste commit i main
           submodules: recursive
           token: ${{ secrets.GH_PAT }}
 
