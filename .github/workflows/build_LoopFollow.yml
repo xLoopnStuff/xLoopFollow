@@ -38,7 +38,7 @@ jobs:
         run: sudo sntp -sS time.windows.com
 
       - name: Fastlane build
-        run: bundle exec fastlane build_LoopFollow
+        run: bundle exec fastlane build_LoopFollow --fastfile ./fastlane/Fastfile
         env:
           TEAMID: ${{ secrets.TEAMID }}
           GH_PAT: ${{ secrets.GH_PAT }}
@@ -47,10 +47,10 @@ jobs:
           FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}  
+          
       - name: Upload to TestFlight
-        run: bundle exec fastlane release
+        run: bundle exec fastlane release --fastfile ./fastlane/Fastfile
         env:
           TEAMID: ${{ secrets.TEAMID }}
           GH_PAT: ${{ secrets.GH_PAT }}
