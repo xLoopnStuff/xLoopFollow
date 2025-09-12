@@ -11,8 +11,11 @@ FASTLANE_ISSUER_ID = ENV["FASTLANE_ISSUER_ID"]
 FASTLANE_KEY = ENV["FASTLANE_KEY"]
 ENV["FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT"] = "120"
 
-# ✅ Hardkodet bundle ID (din faktiske fra App Store Connect)
+# 👇 Hardkodet bundle ID (din faktiske fra App Store Connect)
 BUNDLE_ID = "com.65U27SWT9Q.loopkit.LoopFollow"
+
+# Debug-print i loggen
+puts "🚀 Fastfile bruker BUNDLE_ID=#{BUNDLE_ID}"
 
 platform :ios do
   desc "Build Loop Follow"
@@ -31,7 +34,7 @@ platform :ios do
       app_identifier: BUNDLE_ID
     )
 
-    # 2) Sett også PRODUCT_BUNDLE_IDENTIFIER inne i .xcodeproj (via Ruby, kjørt med sh)
+    # 2) Sett også PRODUCT_BUNDLE_IDENTIFIER i .xcodeproj
     sh <<~BASH
       ruby -e '
         require "xcodeproj";
