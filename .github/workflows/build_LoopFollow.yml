@@ -16,11 +16,9 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
 
-      - name: Checkout upstream main (loopandlearn/LoopFollow)
+      - name: Checkout repo (your fork with updated Fastfile)
         uses: actions/checkout@v4
         with:
-          repository: loopandlearn/LoopFollow
-          ref: main
           submodules: recursive
           token: ${{ secrets.GH_PAT }}
 
@@ -38,7 +36,7 @@ jobs:
         run: sudo sntp -sS time.windows.com
 
       - name: Fastlane build
-        run: bundle exec fastlane build_LoopFollow --fastfile ./fastlane/Fastfile
+        run: bundle exec fastlane build_LoopFollow
         env:
           TEAMID: ${{ secrets.TEAMID }}
           GH_PAT: ${{ secrets.GH_PAT }}
@@ -48,9 +46,9 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}  
-          
+
       - name: Upload to TestFlight
-        run: bundle exec fastlane release --fastfile ./fastlane/Fastfile
+        run: bundle exec fastlane release
         env:
           TEAMID: ${{ secrets.TEAMID }}
           GH_PAT: ${{ secrets.GH_PAT }}
