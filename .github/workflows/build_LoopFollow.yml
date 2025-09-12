@@ -16,11 +16,13 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
 
-      - name: Checkout repo
+      - name: Checkout upstream main (loopandlearn/LoopFollow)
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_PAT }}
+          repository: loopandlearn/LoopFollow
+          ref: main
           submodules: recursive
+          token: ${{ secrets.GH_PAT }}
 
       - name: Patch Match Tables (mute fastlane table output)
         run: |
