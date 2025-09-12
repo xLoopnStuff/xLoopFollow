@@ -11,7 +11,8 @@ FASTLANE_ISSUER_ID = ENV["FASTLANE_ISSUER_ID"]
 FASTLANE_KEY = ENV["FASTLANE_KEY"]
 ENV["FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT"] = "120"
 
-BUNDLE_ID = "com.#{TEAMID}.loopkit.LoopFollow"
+# ✅ Hardkodet bundle ID (din faktiske fra App Store Connect)
+BUNDLE_ID = "com.65U27SWT9Q.loopkit.LoopFollow"
 
 platform :ios do
   desc "Build Loop Follow"
@@ -94,7 +95,6 @@ platform :ios do
       destination: 'generic/platform=iOS',
       buildlog_path: 'buildlog',
       export_options: {
-        # La export håndtere frameworks automatisk
         signingStyle: "automatic",
         signingCertificate: "Apple Distribution",
         provisioningProfiles: {
