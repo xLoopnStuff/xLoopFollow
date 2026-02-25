@@ -146,7 +146,6 @@ jobs:
             echo "is_second_instance=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_second_instance=false" >> "$GITHUB_OUTPUT"
-          fi
 
   # Checks if Distribution certificate is present and valid, optionally nukes and
   # creates new certs if the repository variable ENABLE_NUKE_CERTS == 'true'
@@ -198,6 +197,18 @@ jobs:
       # Install project dependencies
       - name: Install Project Dependencies
         run: bundle install
+
+      # !!! TEMP: Nuke App Store profiles for LoopFollow (manual runs only) !!!
+      - name: Nuke App Store profiles (manual only)
+        if: github.event_name == 'workflow_dispatch'
+        run: bundle exec fastlane match nuke appstore -a com.65U27SWT9Q.loopkit.LoopFollow --force
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
 
       # Sync the GitHub runner clock with the Windows time server (workaround as suggested in https://github.com/actions/runner/issues/2996)
       - name: Sync clock
