@@ -1,5 +1,6 @@
 name: 4. Build LoopFollow
 run-name: Build LoopFollow (${{ github.ref_name }})
+
 on:
   workflow_dispatch:
   schedule:
@@ -7,7 +8,7 @@ on:
     #   Later logic builds if there are updates or if it is the 2nd Sunday of the month
     - cron: "17 10 * * 0" # Sunday at UTC 10:17
 
-env:  
+env:
   GH_PAT: ${{ secrets.GH_PAT }}
   UPSTREAM_REPO: loopandlearn/LoopFollow
   UPSTREAM_BRANCH: ${{ github.ref_name }} # branch on upstream repository to sync from (replace with specific branch name if needed)
@@ -24,22 +25,15 @@ jobs:
       NEW_COMMITS: ${{ steps.sync.outputs.has_new_commits }}
       IS_SECOND_IN_MONTH: ${{ steps.date-check.outputs.is_second_instance }}
 
-    # Check GH_PAT, sync repository, check day in month
     steps:
-
       - name: Access
         id: workflow-permission
         run: |
-          # Validate Access Token
-          
-          # Ensure that gh exit codes are handled when output is piped.
           set -o pipefail
-          
-          # Define patterns to validate the access token (GH_PAT) and distinguish between classic and fine-grained tokens.
+
           GH_PAT_CLASSIC_PATTERN='^ghp_[a-zA-Z0-9]{36}$'
           GH_PAT_FINE_GRAINED_PATTERN='^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$'
-          
-          # Validate Access Token (GH_PAT)
+
           if [ -z "$GH_PAT" ]; then
             failed=true
             echo "::error::The GH_PAT secret is unset or empty. Set it and try again."
@@ -53,8 +47,7 @@ jobs:
               unknown_format=true
               echo "The GH_PAT secret does not have a known token format."
             fi
-            
-            # Attempt to capture the x-oauth-scopes scopes of the token.
+
             if ! scopes=$(curl -sS -f -I -H "Authorization: token $GH_PAT" https://api.github.com | { grep -i '^x-oauth-scopes:' || true; } | cut -d ' ' -f2- | tr -d '\r'); then
               failed=true
               if [ $unknown_format ]; then
@@ -80,8 +73,7 @@ jobs:
               echo "has_permission=true" >> $GITHUB_OUTPUT
             fi
           fi
-          
-          # Exit unsuccessfully if secret validation failed.
+
           if [ $failed ]; then
             exit 2
           fi
@@ -94,9 +86,8 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}
 
-      # This syncs any target branch to upstream branch of the same name
       - name: Sync upstream changes
-        if: | # do not run the upstream sync action on the upstream repository
+        if: |
           steps.workflow-permission.outputs.has_permission == 'true' &&
           vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'loopandlearn'
         id: sync
@@ -108,7 +99,6 @@ jobs:
           upstream_sync_branch: ${{ env.UPSTREAM_BRANCH }}
           upstream_sync_repo: ${{ env.UPSTREAM_REPO }}
 
-      # Display a sample message based on the sync output var 'has_new_commits'
       - name: New commits found
         if: |
           steps.workflow-permission.outputs.has_permission == 'true' &&
@@ -136,7 +126,6 @@ jobs:
           echo "If you want to enable automatic builds and updates for your LoopFollow, please follow the instructions \
               under the following path <code>LoopFollow/fastlane/testflight.md</code>." >> $GITHUB_STEP_SUMMARY
 
-      # Set a logic flag if this is the second instance of this day-of-week in this month
       - name: Check if this is the second time this day-of-week happens this month
         id: date-check
         run: |
@@ -148,34 +137,29 @@ jobs:
             echo "is_second_instance=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # Checks if Distribution certificate is present and valid, optionally nukes and
-  # creates new certs if the repository variable ENABLE_NUKE_CERTS == 'true'
-  # only run if a build is planned
   check_certs:
-      needs: [check_status]
-      name: Check certificates
-      uses: ./.github/workflows/create_certs.yml
-      secrets: inherit
-      if: |
-        github.event_name == 'workflow_dispatch' ||
-          (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
-          (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
+    needs: [check_status]
+    name: Check certificates
+    uses: ./.github/workflows/create_certs.yml
+    secrets: inherit
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+        (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
+        (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
 
-  # Builds LoopFollow
   build:
     name: Build
     needs: [check_certs, check_status]
     runs-on: macos-15
     permissions:
       contents: write
-    if:
-      | # builds with manual start; if scheduled: once a month or when new commits are found
+    if: |
       github.event_name == 'workflow_dispatch' ||
         (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
         (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
     steps:
       - name: Select Xcode version
-        run: "sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer"
+        run: sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
 
       - name: Checkout Repo for building
         uses: actions/checkout@v4
@@ -184,9 +168,7 @@ jobs:
           submodules: recursive
           ref: ${{ env.TARGET_BRANCH }}
 
-      - name: Patch Match Tables
-        run: |
-          ...
+      # NOTE: Removed the broken "Patch Match Tables" step that contained `...`
 
       - name: Install Project Dependencies
         run: bundle install
@@ -201,7 +183,6 @@ jobs:
       - name: Sync clock
         run: sudo sntp -sS time.windows.com
 
-      # Build signed LoopFollow IPA file
       - name: Fastlane Build & Archive
         run: bundle exec fastlane build_LoopFollow
         env:
@@ -212,7 +193,6 @@ jobs:
           FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
 
-      # Upload to TestFlight
       - name: Fastlane upload to TestFlight
         run: bundle exec fastlane release
         env:
@@ -223,7 +203,6 @@ jobs:
           FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
 
-      # Upload Build artifacts
       - name: Upload build log, IPA and Symbol artifacts
         if: always()
         uses: actions/upload-artifact@v4
