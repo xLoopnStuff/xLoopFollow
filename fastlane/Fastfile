@@ -58,7 +58,8 @@ match(
   app_identifier: [
     "com.65U27SWT9Q.loopkit.LoopFollow"
   ],
-  readonly: false
+  readonly: false,
+  force: true
 )
 
     mapping = Actions.lane_context[
